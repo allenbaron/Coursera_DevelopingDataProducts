@@ -1,0 +1,84 @@
+---
+title: "Vacant Houses in Baltimore"
+subtitle: "Coursera, Developing Data Products, R Markdown and Leaflet Assignment (Wk 2)"
+author: "J. Allen Baron"
+date: "May 7, 2018"
+output: html_document
+---
+
+Goal: Create an interactive plot to explore the distribution of vacant (_i.e._ boarded up) houses in Baltimore, Maryland, USA.
+
+```{r, results = 'hide', message = FALSE}
+library(RSocrata)
+library(tidyverse)
+library(stringr)
+library(leaflet)
+library(leaflet.extras)
+library(sf)
+library(htmltools)
+```
+
+
+```{r load_data, results = 'hide'}
+balt_vacant <- read.socrata("https://data.baltimorecity.gov/resource/rw5h-nvv4.csv")
+```
+
+```{r view_data}
+str(balt_vacant)
+```
+
+## Tidy location data by splitting type, longitude, and latitude.
+```{r, tidy_location}
+location <- str_split(balt_vacant$location, pattern = " ", simplify = TRUE) %>%
+    as_tibble()
+colnames(location) <- c("location_type", "longitude", "latitude")
+
+location <- purrr::map_dfc(location,
+                      ~ str_remove_all(.x, pattern = "\\(|\\)") %>%
+                          str_trim(.)
+                      ) %>%
+            type_convert(.)
+head(location)
+
+balt_vacant <- cbind(balt_vacant, location)
+```
+
+## Create map with markers
+```{r marker_map}
+base_map <- leaflet(data = balt_vacant) %>%
+    addTiles(.)
+
+base_map %>%
+    addMarkers(., lng = ~ longitude, lat = ~ latitude)
+```
+
+That's too messy.
+
+## Create heatmap
+```{r heatmap}
+base_map %>%
+    addHeatmap(., lng = ~ longitude, lat = ~ latitude,
+               radius = 10,
+               minOpacity = 0.5, max = 100
+               )
+```
+
+With a little tweaking that's much better.
+
+### Add neighborhoods
+Overlaying Baltimore neighborhood boundaries (including labels) to support and promote discussion.
+```{r neighborhood_data}
+neighborhoods <- read_sf("https://data.baltimorecity.gov/resource/h3fx-54q3.geojson")
+```
+
+```{r complete_map}
+base_map %>%
+    addPolygons(data = neighborhoods,
+                color = "black", weight = 1, opacity = 0.5, fillOpacity = 0,
+                label = ~ htmlEscape(label)
+                ) %>%
+    addHeatmap(., lng = ~ longitude, lat = ~ latitude,
+               radius = 10,
+               minOpacity = 0.5, max = 100
+               )
+```

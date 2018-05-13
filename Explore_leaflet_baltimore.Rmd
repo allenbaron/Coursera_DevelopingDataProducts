@@ -1,0 +1,100 @@
+---
+title: "Vacant Houses in Baltimore"
+subtitle: "Coursera, Developing Data Products, R Markdown and Leaflet Assignment (Wk 2)"
+author: "J. Allen Baron"
+date: "May 7, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(RSocrata)
+library(tidyverse)
+library(stringr)
+library(leaflet)
+library(leaflet.extras)
+library(sf)
+library(htmltools)
+library(rgeos)
+```
+
+```{r datasets, eval = FALSE, echo = FALSE}
+# copied on 2018-05-07
+balt_arrests <- read.socrata("https://data.baltimorecity.gov/resource/icjs-e3jg.csv")
+balt_crime <- read.socrata("https://data.baltimorecity.gov/resource/4ih5-d5d5.csv")
+balt_cctv <- read.socrata("https://data.baltimorecity.gov/resource/h3bk-xcnf.csv")
+balt_311 <- read.socrata("https://data.baltimorecity.gov/resource/ni4d-8w7k.csv")
+balt_911 <- read.socrata("https://data.baltimorecity.gov/resource/m8g9-abgb.csv")
+balt_vacant <- read.socrata("https://data.baltimorecity.gov/resource/rw5h-nvv4.csv")
+balt_gunOffender <- read.socrata("https://data.baltimorecity.gov/resource/vgtq-a93m.csv")
+BPD_force <- read.socrata("https://data.baltimorecity.gov/resource/j5vd-se44.csv")
+balt_v2v_worst <- read.socrate("https://data.baltimorecity.gov/resource/v38f-9vhr.csv")
+balt_v2v_mid <- read.socrata("https://data.baltimorecity.gov/resource/qfba-sx7b.csv")
+balt_church <- read.socrata("https://data.baltimorecity.gov/resource/mh28-dtmi.csv")
+balt_hospital <- read.socrata("https://data.baltimorecity.gov/resource/gmcs-qk4e.csv")
+BPD_stations <- read.socrata("https://data.baltimorecity.gov/resource/ky7v-68uv.csv")
+BCFD_stations <- read.socrata("https://data.baltimorecity.gov/resource/689q-eiea.csv")
+```
+
+Question to ask today: Are the Baltimore's vacant houses clustered in certain areas of the city?
+
+```{r load_data, results = 'hide'}
+balt_vacant <- read.socrata("https://data.baltimorecity.gov/resource/rw5h-nvv4.csv")
+```
+
+```{r view_data}
+str(balt_vacant)
+```
+    
+```{r, tidy_location}
+location <- str_split(balt_vacant$location, pattern = " ", simplify = TRUE) %>%
+    as_tibble()
+colnames(location) <- c("location_type", "longitude", "latitude")
+
+location <- purrr::map_dfc(location,
+                      ~ str_remove_all(.x, pattern = "\\(|\\)") %>%
+                          str_trim(.)
+                      ) %>%
+            type_convert(.)
+head(location)
+
+balt_vacant <- cbind(balt_vacant, location)
+```
+
+```{r marker_map}
+base_map <- leaflet(data = balt_vacant) %>%
+    addTiles(.)
+
+base_map %>%
+    addMarkers(., lng = ~ longitude, lat = ~ latitude)
+```
+
+That's too messy.
+
+```{r heatmap}
+base_map %>%
+    addHeatmap(., lng = ~ longitude, lat = ~ latitude,
+               radius = 10,
+               minOpacity = 0.5, max = 100
+               )
+```
+
+Add neighborhoods
+```{r}
+neighborhoods <- read_sf("https://data.baltimorecity.gov/resource/h3fx-54q3.geojson")
+```
+
+```{r}
+base_map %>%
+    addPolygons(data = neighborhoods,
+                color = "black", weight = 1, opacity = 0.5, fillOpacity = 0,
+                label = ~ htmlEscape(label)
+                ) %>%
+    addHeatmap(., lng = ~ longitude, lat = ~ latitude,
+               radius = 10,
+               minOpacity = 0.5, max = 100
+               )
+```
