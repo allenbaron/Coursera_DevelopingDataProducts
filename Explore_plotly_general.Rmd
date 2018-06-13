@@ -1,0 +1,174 @@
+---
+title: "Exploring plotly"
+output: html_notebook
+---
+
+# Nice Plotly Features
+I made notes outlining the useful features of plotly [here](https://docs.google.com/document/d/18X_NBS_dIlHVfX4MxPYNCg2iuiNRt9pnS417XLGHXso/edit?usp=sharing).
+
+From that list I think some worth exploring include:
+
+1. Subplots
+2. Custom hover info
+3. Custom controls (buttons, dropdowns, sliders, etc.)
+
+I'm going to combine these to create a cool visualization (hopefully without too much effort).
+
+# The Topic
+I want to use something non-controversial that people generally just tend to find interesting. I was initially thinking savings vs expenditures by state or country as a picture of household financial health but access to the data is not as straightforward as I'd expected and economics are so overdone. So, I'll go with **baby names in the US**.
+
+# The Plan
+I'll create 2 plots as follows:
+
+1. Chloropleth map applying to most recent year of data
+    - _Color_ = overall US ranking of #1 name in state
+        - **Question answered:** Where does each state's most popular name fall among all US names? Should allow us to determine which states prefer less popular names.
+        - **Hypothesis:** The most popular name in the US will most likely also be the most popular in states with the largest number of births (I hadn't planned to calculate this but I might).
+    - _Custom hover info_ = Most popular baby name in state, overall US ranking, and number of states where this name is most popular
+    - _Button_ = (optional) toggle boy/girl names
+2. Line graph of top 10 baby names over time
+    - _y-axis_ = ranking
+    - _x-axis_ = year
+    - _Range slider_ = change time (to zoom in on period of interest)
+    - _Custom hover info_ = name, rank (x-axis), year (y-axis)
+        - other info? ... maybe all-time popularity (over all years), number of years at #1
+    - NOTE: I'm going to have to keep an eye on the legend to make sure it doesn't get too large... and fitting this with the chloropleth might be a bit tricky. Some adjustments will need to be made probably.
+
+# Get the Data
+Thank you [US Social Security Administration](https://www.ssa.gov/OACT/babynames/limits.html)! The data comes zipped as .txt files by year (for National data) or by state, with 1 file per year or state respectively. I'm going to have to combine this data into 2 dataframes (instead of a ton of files). The data in files are separated by commas. 
+
+```{r libraries, include = FALSE}
+library(tidyverse)
+library(plotly)
+```
+
+```{r download, eval = FALSE}
+download.file("https://www.ssa.gov/OACT/babynames/names.zip",
+              destfile = "./plotly_data/names.zip") # national data
+download.file("https://www.ssa.gov/OACT/babynames/state/namesbystate.zip",
+              destfile = "./plotly_data/namesbystate.zip") # state data
+saveRDS(Sys.time(), file = "./plotly_data/dl_timestamp.Rdata")
+```
+
+```{r load_data, results = 'hide', message = FALSE}
+# unzip files to tempdir & list
+td <- tempdir()
+unzip("./plotly_data/names.zip", exdir = td)
+unzip("./plotly_data/namesbystate.zip", exdir = td)
+US_txt <- list.files(td, "^yob.*\\.txt$", full.names = TRUE)
+state_txt <- list.files(td, "^[A-Z]{2}\\.TXT$", full.names = TRUE)
+
+# combine into 2 dataframes
+US_baby <- map(US_txt,
+               ~ read_csv(.x,
+                         col_names = c("Name", "Sex", "n"),
+                         col_types = "cci"
+                         ) %>%
+                   mutate(., year = str_extract(.x, "[0-9]{4}")) # add year
+               ) %>%
+           reduce(rbind)
+
+state_baby <- map(state_txt,
+               ~ read_csv(.x,
+                         col_names = c("State", "Sex", "Year", "Name", "n"),
+                         col_types = "ccici"
+                         )
+               ) %>%
+           reduce(rbind)
+```
+
+# Create the plots
+
+## Calculations
+
+```{r US_wrangling}
+US_no1 <- US_baby %>%
+    group_by(., Sex, year) %>%
+    filter(., n == max(n)) %>%
+    add_count(., Name)
+US_no1
+
+yrs_no1 <- ungroup(US_no1) %>%
+    count(., Name, Sex, sort = TRUE)
+yrs_no1
+
+US_2017 <- filter(US_baby, year == 2017) %>%
+    arrange(., desc(n)) %>%
+    mutate(., US_rank = row_number())
+
+US_2017
+```
+
+```{r state_wrangling}
+state_last <- filter(state_baby, Year == max(Year)) %>%
+    group_by(., State, Sex) %>%
+    filter(., n == max(n)) %>%
+    add_count(., sort = TRUE) %>%
+    left_join(., select(US_2017, Name, Sex, US_rank), by = c("Name", "Sex"))
+
+state_no1 <- ungroup(state_last) %>%
+    count(., Name, Sex) %>%
+    rename(., num_states = nnn)
+state_no1
+
+state_comb <- left_join(state_last, state_no1, by = c("Name", "Sex")) %>%
+    mutate(., # combine info for ties
+       Name2 = if_else(
+           lead(paste(State, Sex, Year, n), 1) == paste(State, Sex, Year, n),
+           paste(Name, lead(Name, 1), sep = " / "),
+           NA_character_,
+           missing = Name
+           ),
+       US_rank2 = if_else(
+           lead(paste(State, Sex, Year, n), 1) == paste(State, Sex, Year, n),
+           paste(US_rank, lead(US_rank, 1), sep = " / "),
+           NA_character_,
+           missing = as.character(US_rank)
+           ),
+       num_states2 = if_else(
+           paste(State, Sex, Year, n) == lead(paste(State, Sex, Year, n), 1),
+           paste(num_states, lead(num_states, 1), sep = " / "),
+           NA_character_,
+           missing = as.character(num_states)
+           )
+     )
+
+# remove second line for ties, add hover text
+state_final <- filter(state_comb, nn == 1 | (nn == 2 & grepl("/", Name2))) %>%
+    mutate(.,
+           hover = paste(
+               if_else(nn > 1, "TIE - ", ""), Name2,
+               "<br>Total births = ", n,
+               "<br>US rank = ", US_rank2,
+               "<br>No. of states where #1 = ", num_states2,
+               sep = ""
+               )
+    )
+state_final
+```
+
+## Create the choropleth
+```{r}
+# specify some map projection/options
+ch_opts <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = FALSE
+)
+
+p <- plot_geo(state_final, locationmode = 'USA-states', text = ~State) %>%
+    add_trace(., type = "choropleth",
+        z = ~US_rank, reversescale = TRUE, text = ~hover, locations = ~State,
+        color = ~US_rank, colors = 'PuRd'
+        ) %>%
+    colorbar(title = "U.S. Rank") %>%
+    layout(
+        title = '2017 Most Popular Baby Names in US by State<br>(Hover for breakdown)',
+        geo = ch_opts
+        )
+
+p
+```
+
+
+
