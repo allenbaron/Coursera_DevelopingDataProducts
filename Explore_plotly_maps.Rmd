@@ -1,0 +1,150 @@
+---
+title: "Exploring plot_ly for creating maps"
+author: "J. Allen Baron"
+date: "May 22, 2018"
+output: html_notebook
+---
+
+```{r libraries, include = FALSE}
+library(tidyverse)
+library(RSocrata)
+library(sf)
+library(plotly)
+```
+
+## Prepare Data (copied from JABaron_leaflet.Rmd)
+### Load Baltimore vacant (_i.e._ boarded up) houses data
+```{r load_data, results = 'hide'}
+balt_vacant <- read.socrata("https://data.baltimorecity.gov/resource/rw5h-nvv4.csv")
+```
+
+### Tidy location data
+```{r, tidy_location, message = FALSE}
+location <- str_split(balt_vacant$location, pattern = " ", simplify = TRUE) %>%
+    as_tibble()
+colnames(location) <- c("location_type", "longitude", "latitude")
+
+location <- purrr::map_dfc(location,
+                      ~ str_remove_all(.x, pattern = "\\(|\\)") %>%
+                          str_trim(.)
+                      ) %>%
+            type_convert(.)
+
+balt_vacant <- cbind(balt_vacant, location)
+
+lon_range <- range(balt_vacant$longitude)
+lat_range <- range(balt_vacant$latitude)
+```
+
+### Load Baltimore neighborhood boundaries
+To give someone not familiar with Baltimore some context
+```{r neighborhood_data}
+neighborhoods <- read_sf("https://data.baltimorecity.gov/resource/h3fx-54q3.geojson")
+nb <- st_read("https://data.baltimorecity.gov/resource/h3fx-54q3.geojson")
+```
+
+```{r nb_latlong}
+nb <- neighborhoods$geometry[[1]] %>%
+    as.matrix() %>%
+    as_tibble() %>%
+    rename(longitude = V1, latitude = V2)
+```
+
+# Try out plotly
+```{r plotly_vacants}
+plot_ly() %>%
+    add_trace(data = balt_vacant, type = 'scattergeo', mode = 'markers',
+                lon = ~longitude, lat = ~latitude
+                ) %>%
+    add_trace(data = neighborhoods, type = 'scattergeo', mode = 'lines') %>%
+    layout(geo = list(scope = 'USA'))
+
+
+plot_geo() %>%
+    add_trace(data = balt_vacant, type = 'scattergeo', mode = 'markers',
+                lon = ~longitude, lat = ~latitude
+                ) %>%
+        # this doesn't draw neighborhood lines for some reason (object type?)
+    add_polygons(data = nb, x = ~longitude, y = ~latitude) %>%
+    layout(geo = list(
+        scope = 'usa',
+        lonaxis = list(range = lon_range),
+        lataxis = list(range = lat_range)
+        )
+        )
+
+plot_ly(neighborhoods)
+class(neighborhoods)
+class(nb)
+View(nb)
+as.matrix(neighborhoods$geometry)
+t <- neighborhoods$geometry[[1]]
+str(t)
+```
+
+
+```{r}
+df <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/2011_february_us_airport_traffic.csv')
+
+# geo styling
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showland = TRUE,
+  landcolor = toRGB("gray95"),
+  subunitcolor = toRGB("gray85"),
+  countrycolor = toRGB("gray85"),
+  countrywidth = 0.5,
+  subunitwidth = 0.5
+)
+
+p <- plot_geo(df, lat = ~lat, lon = ~long) %>%
+  add_markers(
+    text = ~paste(airport, city, state, paste("Arrivals:", cnt), sep = "<br />"),
+    color = ~cnt, symbol = I("square"), size = I(8), hoverinfo = "text"
+  ) %>%
+  colorbar(title = "Incoming flights<br />February 2011") %>%
+  layout(
+    title = 'Most trafficked US airports<br />(Hover for airport)', geo = g
+  )
+p
+head(df)
+```
+
+```{r direct_copy}
+#### DON'T WORK!!! ####
+# from https://moderndata.plot.ly/visualizing-geo-spatial-data-with-sf-and-plotly/
+plot_ly(franconia, split = ~NAME_ASCI)
+
+plot_ly(
+  franconia, 
+  split = ~NUTS_ID,
+  color = ~SHAPE_AREA,
+  alpha = 1,
+  showlegend = FALSE
+)
+```
+
+```{r altered}
+# from https://moderndata.plot.ly/visualizing-geo-spatial-data-with-sf-and-plotly/
+plot_ly(franconia, split = ~NAME_ASCI, type = 'scattergeo', mode = 'lines',
+        linetype = 'solid')
+%>%
+    layout(geo = list(
+        scope = 'usa',
+        lonaxis = list(range = lon_range),
+        lataxis = list(range = lat_range)
+        )
+        )
+
+plot_ly(
+  franconia, 
+  split = ~NUTS_ID,
+  color = ~SHAPE_AREA,
+  alpha = 1,
+  showlegend = FALSE
+)
+```
+
+# CONCLUSION
+I don't really like plotly for maps. Maybe combining it with something else would make it better but it isn't very intuitive and needs a lot of tweaking to make it work.
