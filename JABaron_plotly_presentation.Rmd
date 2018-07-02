@@ -1,0 +1,129 @@
+---
+title: "U.S. Baby Name Popularity, 1967-2017"
+subtitle: "Presentation with Plotly\r\nDeveloping Data Products - Week 3"
+author: "J. Allen Baron"
+date: "July 2, 2018"
+output:
+    ioslides_presentation:
+        smaller: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include = FALSE}
+library(tidyverse)
+library(plotly)
+library(lubridate)
+library(RColorBrewer)
+library(hues)
+```
+
+## Goal
+
+- To explore the popularity of girls and boys baby names in the U.S. over the last 50 years (1967-2017).
+- **NOTE:** To reduce complexity, only those names which reached #1 or #2 in _at least one year_ are included.
+- For the code examine the original .Rmd file.
+
+## Get Name Popularity Data | From U.S. Social Security Administration
+
+### Download 
+```{r download, eval = FALSE}
+download.file("https://www.ssa.gov/OACT/babynames/names.zip",
+              destfile = "./plotly_data/names.zip") # national data
+
+# time of download
+Sys.time() %>%
+    format(., format = "%e %b %Y at %H:%M:%S", usetz = TRUE) %>%
+    saveRDS(., file = "./plotly_data/dl_timestamp.Rdata")
+```
+
+Data was downloaded from the U.S. Social Security Administration on `r readRDS(file = "./plotly_data/dl_timestamp.Rdata")`.
+
+### Load in R
+```{r load_data, results = 'hide', message = FALSE}
+# unzip files to tempdir & list
+td <- tempdir()
+unzip("./plotly_data/names.zip", exdir = td)
+
+US_txt <- list.files(td, "^yob.*\\.txt$", full.names = TRUE)
+
+# combine into 2 dataframes
+US_baby <- map(US_txt,
+               ~ read_csv(.x,
+                         col_names = c("Name", "Sex", "n"),
+                         col_types = "cci"
+                         ) %>%
+                   mutate(., Year = as.integer(str_extract(.x, "[0-9]{4}"))) # add year
+               ) %>%
+           reduce(rbind)
+```
+
+
+## Filter data by Top 2 names each year
+```{r top2_allRank}
+# establish rank by year for girls and boys
+last50 <- mutate(US_baby, Sex = recode(Sex, "F" = "Girl", "M" = "Boy")) %>%
+    filter(., Year >= max(Year) - 50) %>%
+    group_by(., Sex, Year) %>%
+    arrange(., desc(n)) %>%
+    mutate(., Rank = min_rank(-n))
+
+# identify top 2 girls' names for each year
+top2_girls <- filter(last50, Rank <= 2 & Sex == "Girl") %>%
+    {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
+
+# get data for all years for any girl's name that reached the top 2 at least once
+girls <- filter(last50, Name %in% top2_girls & Sex == "Girl") %>%
+    arrange(., Name, Year) %>%
+    # Represent years with no data for a name with 'NA' to make lack of name
+    #   popularity evident (i.e. < 5 girls with that name that year)
+    unite(., col = n_Rank, n, Rank, sep = "_") %>%
+    spread(., key = Year, value = n_Rank) %>%
+    gather(., key = "Year", value = "n_Rank", -Name, -Sex, na.rm = FALSE) %>%
+    separate(., col = n_Rank, into = c("n", "Rank"), sep = "_",
+             remove = TRUE, convert = TRUE)
+
+# same for boys
+top2_boys <- filter(last50, Rank <= 2 & Sex == "Boy") %>%
+    {unique(.$Name)}
+
+boys <- filter(last50, Name %in% top2_boys & Sex == "Boy") %>%
+    arrange(., Year) %>%
+    unite(., col = n_Rank, n, Rank, sep = "_") %>%
+    spread(., key = Year, value = n_Rank) %>%
+    gather(., key = "Year", value = "n_Rank", -Name, -Sex, na.rm = FALSE) %>%
+    separate(., col = n_Rank, into = c("n", "Rank"), sep = "_",
+             remove = TRUE, convert = TRUE)
+```
+
+## Popularity of Girls' Names over the Last 50 years
+
+Only those girls' names that reached the Top 2 in at least one year are included.
+```{r}
+girl_colors <- top2_girls %>%
+    length(.) %>%
+    iwanthue(.) %>%
+    unname(.)
+
+plot_ly(data = girls, type = 'scatter', mode = 'lines+markers',
+        x = ~Year, y = ~Rank, color = ~Name, colors = girl_colors
+        ) %>%
+    layout(., yaxis = list(range = c(5.5, 0.5)))
+```
+
+## Popularity of Boys' Names over the Last 50 years
+
+Only those boys' names that reached the Top 2 in at least one year are included.
+```{r}
+boy_colors <- top2_boys %>%
+    length(.) %>%
+    iwanthue(.) %>%
+    unname(.)
+
+plot_ly(data = girls, type = 'scatter', mode = 'lines+markers',
+        x = ~Year, y = ~Rank, color = ~Name, colors = boy_colors
+        ) %>%
+    layout(., yaxis = list(range = c(5.5, 0.5)))
+```
