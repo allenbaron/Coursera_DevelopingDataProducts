@@ -1,6 +1,6 @@
 ---
-title: "U.S. Baby Name Popularity, 1967-2017"
-subtitle: "Presentation with Plotly\r\nDeveloping Data Products - Week 3"
+title: "U.S. Baby Name<br>Popularity, 1967-2017"
+subtitle: "Presentation with Plotly<br>Developing Data Products - Week 3"
 author: "J. Allen Baron"
 date: "July 2, 2018"
 output:
@@ -15,21 +15,21 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r libraries, include = FALSE}
 library(tidyverse)
 library(plotly)
-library(lubridate)
-library(RColorBrewer)
 library(hues)
 ```
 
 ## Goal
 
-- To explore the popularity of girls and boys baby names in the U.S. over the last 50 years (1967-2017).
-- **NOTE:** To reduce complexity, only those names which reached #1 or #2 in _at least one year_ are included.
-- For the code examine the original .Rmd file.
+#### To explore the popularity of girls and boys baby names in the U.S. over the last 50 years (1967-2017).
 
-## Get Name Popularity Data | From U.S. Social Security Administration
+<br><br>
 
+#### NOTES:
+
+1. To reduce complexity, only those names which reached #1 or #2 in _at least one year_ are included.
+
+```{r download, include = FALSE, eval = FALSE}
 ### Download 
-```{r download, eval = FALSE}
 download.file("https://www.ssa.gov/OACT/babynames/names.zip",
               destfile = "./plotly_data/names.zip") # national data
 
@@ -38,11 +38,13 @@ Sys.time() %>%
     format(., format = "%e %b %Y at %H:%M:%S", usetz = TRUE) %>%
     saveRDS(., file = "./plotly_data/dl_timestamp.Rdata")
 ```
+  
 
-Data was downloaded from the U.S. Social Security Administration on `r readRDS(file = "./plotly_data/dl_timestamp.Rdata")`.
+2. Data was downloaded from the [U.S. Social Security Administration](https://www.ssa.gov/OACT/babynames/) on `r readRDS(file = "./plotly_data/dl_timestamp.Rdata")`.
+3. For the code, examine the original .Rmd file.
 
-### Load in R
-```{r load_data, results = 'hide', message = FALSE}
+```{r load_data, include = FALSE}
+### Load into R
 # unzip files to tempdir & list
 td <- tempdir()
 unzip("./plotly_data/names.zip", exdir = td)
@@ -60,9 +62,8 @@ US_baby <- map(US_txt,
            reduce(rbind)
 ```
 
-
+```{r top2_allRank, include = FALSE}
 ## Filter data by Top 2 names each year
-```{r top2_allRank}
 # establish rank by year for girls and boys
 last50 <- mutate(US_baby, Sex = recode(Sex, "F" = "Girl", "M" = "Boy")) %>%
     filter(., Year >= max(Year) - 50) %>%
@@ -98,10 +99,8 @@ boys <- filter(last50, Name %in% top2_boys & Sex == "Boy") %>%
              remove = TRUE, convert = TRUE)
 ```
 
-## Popularity of Girls' Names over the Last 50 years
-
-Only those girls' names that reached the Top 2 in at least one year are included.
-```{r}
+## Popularity of Girls' Names
+```{r, echo = FALSE}
 girl_colors <- top2_girls %>%
     length(.) %>%
     iwanthue(.) %>%
@@ -112,18 +111,26 @@ plot_ly(data = girls, type = 'scatter', mode = 'lines+markers',
         ) %>%
     layout(., yaxis = list(range = c(5.5, 0.5)))
 ```
+  
+- NOTE: Only those girls' names that reached the Top 2 in at least one year are included.
 
-## Popularity of Boys' Names over the Last 50 years
-
-Only those boys' names that reached the Top 2 in at least one year are included.
-```{r}
+## Popularity of Boys' Names
+```{r, echo = FALSE}
 boy_colors <- top2_boys %>%
     length(.) %>%
     iwanthue(.) %>%
     unname(.)
 
-plot_ly(data = girls, type = 'scatter', mode = 'lines+markers',
+plot_ly(data = boys, type = 'scatter', mode = 'lines+markers',
         x = ~Year, y = ~Rank, color = ~Name, colors = boy_colors
         ) %>%
     layout(., yaxis = list(range = c(5.5, 0.5)))
 ```
+  
+- NOTE: Only those boys' names that reached the Top 2 in at least one year are included.
+
+## sessionInfo {.smaller}
+```{r, echo = FALSE}
+sessionInfo()
+```
+
