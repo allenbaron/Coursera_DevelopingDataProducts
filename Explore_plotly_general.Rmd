@@ -648,3 +648,22 @@ ggplot(madison, aes(x = Year, y = n, color = Sex)) +
 ```
 Similar trend but the name never really caught on for boys... probably because people overwhelmingly preferred it for girls.
 
+# ioslides formatting efforts
+
+## CSS didn't reduce font size
+<style>
+div.code {
+    font-size: 50%;
+}
+
+div.smallnote {
+    font-size: 75%;
+}
+</style>
+
+## sessionInfo {.smaller}
+<div class = "code">
+```{r, echo = FALSE}
+sessionInfo()
+```
+</div>
