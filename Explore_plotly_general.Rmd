@@ -20,7 +20,7 @@ I want to use something non-controversial that people generally just tend to fin
 # The Plan
 I'll create 2 plots as follows:
 
-1. Chloropleth map applying to most recent year of data
+1. Choropleth map applying to most recent year of data
     - _Color_ = overall US ranking of #1 name in state
         - **Question answered:** Where does each state's most popular name fall among all US names? Should allow us to determine which states prefer less popular names.
         - **Hypothesis:** The most popular name in the US will most likely also be the most popular in states with the largest number of births (I hadn't planned to calculate this but I might).
@@ -40,6 +40,9 @@ Thank you [US Social Security Administration](https://www.ssa.gov/OACT/babynames
 ```{r libraries, include = FALSE}
 library(tidyverse)
 library(plotly)
+library(lubridate)
+library(RColorBrewer)
+library(hues)
 ```
 
 ```{r download, eval = FALSE}
@@ -64,7 +67,7 @@ US_baby <- map(US_txt,
                          col_names = c("Name", "Sex", "n"),
                          col_types = "cci"
                          ) %>%
-                   mutate(., year = str_extract(.x, "[0-9]{4}")) # add year
+                   mutate(., Year = as.integer(str_extract(.x, "[0-9]{4}"))) # add year
                ) %>%
            reduce(rbind)
 
@@ -83,7 +86,7 @@ state_baby <- map(state_txt,
 
 ```{r US_wrangling}
 US_no1 <- US_baby %>%
-    group_by(., Sex, year) %>%
+    group_by(., Sex, Year) %>%
     filter(., n == max(n)) %>%
     add_count(., Name)
 US_no1
@@ -92,7 +95,7 @@ yrs_no1 <- ungroup(US_no1) %>%
     count(., Name, Sex, sort = TRUE)
 yrs_no1
 
-US_2017 <- filter(US_baby, year == 2017) %>%
+US_2017 <- filter(US_baby, Year == 2017) %>%
     arrange(., desc(n)) %>%
     mutate(., US_rank = row_number())
 
@@ -144,10 +147,22 @@ state_final <- filter(state_comb, nn == 1 | (nn == 2 & grepl("/", Name2))) %>%
                sep = ""
                )
     )
+state_final <- ungroup(state_final) %>%
+    mutate(., Sex = recode(Sex, "M" = "Boy", "F" = "Girl")) %>%
+    left_join(., as_tibble(cbind(state.abb, state.name)), by = c("State" = "state.abb"))
+
 state_final
 ```
 
 ## Create the choropleth
+
+Got the transform and button info from:
+https://community.plot.ly/t/need-help-on-using-dropdown-to-filter/6596/2
+
+Color info from:
+https://moderndata.plot.ly/create-colorful-graphs-in-r-with-rcolorbrewer-and-plotly/
+
+This choropleth works and the button changes the data like I want but I can't figure out how to get the data change _AND_ the color change.
 ```{r}
 # specify some map projection/options
 ch_opts <- list(
@@ -156,19 +171,418 @@ ch_opts <- list(
   showlakes = FALSE
 )
 
-p <- plot_geo(state_final, locationmode = 'USA-states', text = ~State) %>%
+p <- plot_geo(state_final, locationmode = 'USA-states') %>%
     add_trace(., type = "choropleth",
-        z = ~US_rank, reversescale = TRUE, text = ~hover, locations = ~State,
-        color = ~US_rank, colors = 'PuRd'
+        z = ~US_rank, text = ~hover, locations = ~State,
+        color = ~US_rank, colors = "PuRd", 
+        transforms = list(
+            list(
+                type = "filter",
+                target = ~Sex,
+                operation = "=",
+                value = c("Boy", "Girl"),
+                z = ~US_rank
+            )
+        )
         ) %>%
     colorbar(title = "U.S. Rank") %>%
     layout(
         title = '2017 Most Popular Baby Names in US by State<br>(Hover for breakdown)',
-        geo = ch_opts
+        geo = ch_opts,
+        updatemenus = list(
+            list(
+                type = 'buttons',
+                active = 0,
+                buttons = list(
+                    list(method = "restyle",
+                         args = list("transforms[0].value", "Boy"),
+                         label = "Boy"),
+                    list(method = "restyle",
+                         args = list("transforms[0].value", "Girl"),
+                         label = "Girl")
+                )
+            )
         )
+    )
+
 
 p
 ```
 
+### Ask SO
+The documentation on plotly for R is just too poor. There are a handful of examples on how to enter something but none of the explanation about why a certain approach is used (and multiple instances in the documentation that say "all the options follow below" without any options.
 
+Time to ask the Stack Overflow community. Creating a minimal, reproducible example.
+```{r SO_minimal, eval = FALSE}
+# prep data for SO
+df <- select(state_final, code = State, sex = Sex, us_rank = US_rank) %>%
+    mutate(., sex = recode(sex, "Boy" = "M", "Girl" = "F"))
+
+dput(df)
+
+# put everything below this on SO
+    df <- structure(list(code = c("AK", "WI", "WY", "AK", "AL", "AL", "AR", 
+    "AR", "AZ", "AZ", "CA", "CA", "CO", "CO", "CT", "CT", "DC", "DC", 
+    "DE", "DE", "FL", "FL", "GA", "GA", "HI", "HI", "IA", "IA", "ID", 
+    "ID", "IL", "IL", "IN", "IN", "KS", "KS", "KY", "KY", "LA", "LA", 
+    "MA", "MA", "MD", "MD", "ME", "ME", "MI", "MI", "MN", "MN", "MO", 
+    "MO", "MS", "MS", "MT", "MT", "NC", "NC", "ND", "ND", "NE", "NE", 
+    "NH", "NH", "NJ", "NJ", "NM", "NM", "NV", "NV", "NY", "NY", "OH", 
+    "OH", "OK", "OK", "OR", "OR", "PA", "PA", "RI", "RI", "SC", "SC", 
+    "SD", "SD", "TN", "TN", "TX", "TX", "UT", "UT", "VA", "VA", "VT", 
+    "VT", "WA", "WA", "WI", "WV", "WV", "WY"), sex = c("F", "F", 
+    "M", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", 
+    "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", 
+    "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", 
+    "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", 
+    "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", 
+    "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", 
+    "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", 
+    "M", "F", "M", "F", "M", "M", "F", "M", "F"), us_rank = c(1L, 
+    1L, 2L, 9L, 5L, 7L, 1L, 14L, 1L, 2L, 1L, 4L, 1L, 2L, 3L, 4L, 
+    5L, 9L, 3L, 10L, 6L, 2L, 5L, 7L, 1L, 2L, 28L, 15L, 1L, 15L, 3L, 
+    4L, 1L, 15L, 1L, 15L, 1L, 7L, 3L, 2L, 1L, 11L, 5L, 2L, 18L, 15L, 
+    1L, 2L, 3L, 15L, 3L, 7L, 5L, 7L, 3L, 9L, 5L, 7L, 1L, 15L, 1L, 
+    15L, 18L, 10L, 1L, 2L, 13L, 4L, 1L, 2L, 3L, 2L, 1L, 2L, 1L, 7L, 
+    1L, 15L, 1L, 2L, 18L, 17L, 5L, 7L, 1L, 15L, 5L, 7L, 1L, 4L, 3L, 
+    15L, 3L, 2L, 26L, 37L, 3L, 2L, 29L, 1L, 2L, 1L)), class = c("tbl_df", 
+    "tbl", "data.frame"), row.names = c(NA, -102L))
+
+    library(magrittr)
+    library(plotly)
+    
+    geo_opts <- list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = FALSE
+    )
+
+    plot_geo(df, locationmode = 'USA-states') %>%
+        add_trace(., type = "choropleth",
+            z = ~us_rank, locations = ~code, color = ~us_rank, 
+            transforms = list(
+                list(
+                    type = "filter",
+                    target = ~sex,
+                    operation = "=",
+                    value = c("M", "F")
+                )
+            )
+            ) %>%
+        layout(
+            geo = geo_opts,
+            updatemenus = list(
+                list(
+                    type = 'buttons',
+                    active = 0,
+                    buttons = list(
+                        list(method = "restyle",
+                             args = list("transforms[0].value", "M"),
+                             label = "Boy"),
+                        list(method = "restyle",
+                             args = list("transforms[0].value", "F"),
+                             label = "Girl")
+                    )
+                )
+            )
+        )
+
+```
+
+### Choropleths side-by-side
+
+Notes about `Layout()`:
+
+- Needs to be called with each choropleth to provide geo options
+- Title can only be specified for entire plot (if multiple, value will be last `title =` call in `layout()`
+- How to control subplot margins = **unknown**; call in individual plot layout has no effect
+- Cannot move 2nd colorbar/legend ('boys' map)
+- Annotations seem to work better when called in `layout()` after calling `subplot()`
+```{r}
+boy <- filter(state_final, Sex == "Boy")
+girl <- filter(state_final, Sex == "Girl")
+
+# specify some map projection/options
+ch_opts <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = FALSE
+)
+
+boy_ch <- plot_geo(boy, locationmode = 'USA-states') %>%
+    add_trace(., type = "choropleth",
+        z = ~US_rank, text = ~hover, locations = ~State,
+        zauto = FALSE, zmin = 1, zmax = 30,
+        color = ~US_rank, colors = "GnBu", reversescale = TRUE
+        ) %>%
+    colorbar(title = "U.S. Rank", y = -1) %>%
+    layout(., geo = ch_opts)
+
+
+girl_ch <- plot_geo(girl, locationmode = 'USA-states') %>%
+    add_trace(., type = "choropleth",
+        z = ~US_rank, text = ~hover, locations = ~State,
+        zauto = FALSE, zmin = 1, zmax = 30,
+        color = ~US_rank, colors = "PuRd", reversescale = TRUE
+        ) %>%
+    colorbar(., title = "U.S. Rank", x = 0.45) %>%
+    layout(., geo = ch_opts)
+
+subplot(girl_ch, boy_ch) %>%
+    layout(annotations = list(
+        list(
+            text = "2017 Girl Names",
+            xref = "paper", xanchor = "center", x = 0.25,
+            yref = "paper", yanchor = "bottom", y = 0.1,
+            align = "center",
+            showarrow = FALSE
+            ),
+        list(
+            text = "2017 Boy Names",
+            xref = "paper", xanchor = "center", x = 0.75,
+            yref = "paper", yanchor = "bottom", y = 0.1,
+            align = "center",
+            showarrow = FALSE
+            )
+        )
+    )
+```
+I'm going to leave this where it is for now. It's definitely not what I was hoping for but the documentation is rough.
+
+# Top 5 names by year
+```{r US_rank_yrs}
+top5 <- group_by(US_baby, Sex, Year) %>%
+    top_n(., n = 5, wt = n) %>%
+    arrange(., desc(n)) %>%
+    mutate(., rank = row_number())
+
+top5_50y <- ungroup(top5) %>%
+    filter(., Year >= (max(Year) - 50)) %>%
+    mutate(., Sex = recode(Sex, "M" = "Boy", "F" = "Girl"))
+arrange(top5_50y, Year, Sex)
+unique(top5_50y$Year) %>% sort()
+
+girl5 <- filter(top5_50y, Sex == "Girl")
+boy5 <- filter(top5_50y, Sex == "Boy")
+
+girl_n <- n_distinct(girl5$Name)
+boy_n <- n_distinct(boy5$Name)
+
+col_palette <- colorRampPalette(brewer.pal(9, "Set1"))
+
+n_distinct(top5$Name) # count total unique names (need a color palette with enough colors)
+
+girl_g <- ggplot(data = girl5, aes(x = Year, y = rank)) +
+    geom_line(aes(color = Name)) +
+    scale_y_reverse()
+
+boy_g <- ggplot(data = boy5, aes(x = Year, y = rank)) +
+    geom_line(aes(color = Name)) +
+    scale_y_reverse()
+
+col_palette <- colorRampPalette(brewer.pal(9, "Set1"))
+
+subplot(girl_g, boy_g)
+
+# boy/girl split by facet (too many names)
+ggplot(data = top5, aes(x = Year, y = rank)) +
+    geom_point(aes(color = Name)) +
+    facet_grid(Sex ~ .)
+
+plot_ly(data = top5, x = ~Year, y = ~rank,
+        color = ~Name,
+        type = "scatter", mode = "lines")
+
+# doesn't work with transforms...
+us_p <- plot_ly(data = top5, x = ~Year, y = ~rank,
+        color = ~Name, colors = col_palette(n_distinct(top5_50y$Name)),
+        type = "scatter", mode = "lines",
+        transforms = list(
+            list(
+                type = 'filter',
+                target = 'Sex',
+                operation = '=',
+                value = c("Boy", "Girl")
+                )
+            )
+  )
+
+us_p %>%
+    layout(.,
+           updatemenus = list(
+               list(
+                type = 'buttons',
+                active = 0,
+                buttons = list(
+                    list(method = "restyle",
+                         args = list("transforms[0].value", "Boy"),
+                         label = "Boy"),
+                    list(method = "restyle",
+                         args = list("transforms[0].value", "Girl"),
+                         label = "Girl")
+                    )
+                )
+           )
+    )
+
+
+```
+
+Make lines appear by using simpler case (works!)
+```{r}
+col_palette <- colorRampPalette(brewer.pal(9, "PuRd")[5:9])
+
+# testing out package `hues` (clustering to get n distinct colors)
+library(hues)
+
+col_palette(girl_n)
+iwanthue(girl_n) %>% attributes()
+
+# girls plot
+arrange(girl5, Year) %>%
+plot_ly(data = ., type = 'scatter', mode = 'lines+markers',
+        x = ~Year, y = ~rank, color = ~Name, colors = unname(iwanthue(girl_n))
+) %>%
+    layout(.,
+           yaxis = list(
+               tickmode = 'linear', tick0 = 1, dtick = 1,
+               autorange = "reversed",
+               title = "Rank"
+               ),
+           xaxis = list(
+               title = "Year"
+           )
+        )
+
+# boys plot
+arrange(boy5, Year) %>%
+plot_ly(data = ., type = 'scatter', mode = 'lines+markers', connectgaps = FALSE,
+        x = ~Year, y = ~rank, color = ~Name, colors = unname(iwanthue(boy_n))
+) %>%
+    layout(.,
+           yaxis = list(
+               tickmode = 'linear', tick0 = 1, dtick = 1,
+               autorange = "reversed",
+               title = "Rank"
+               ),
+           xaxis = list(
+               title = "Year"
+           )
+        )
+
+# just discovered that lines connect without gaps --> need NA values to create gaps
+#   in plotly
+```
+
+How do I add the missing years with NA values in rank? (This is something I should be able to do)
+```{r}
+girl5
+filter(girl5, Name == "Abigail")
+
+# years 1967 - 2017
+t <- spread(girl5, key = Name, value = rank) %>%
+    gather(., key = "Name", value = "rank", -Sex, -n, -Year, na.rm = FALSE)
+t
+count(t, Name)
+```
+
+This makes `n` incorrect. A better way to do this might be to go back to the original data, identify the top 5 names each year, filter every name, then either:
+
+1. create rank for the top 5 only (and leave NA everywhere else)
+2. ranke each name for every year and replace anything less than 5 with NA (or leave the rank)
+
+```{r top5_allRank}
+tmp_50yr <- mutate(US_baby, Sex = recode(Sex, "F" = "Girl", "M" = "Boy")) %>%
+    filter(., Year >= max(Year) - 50) %>%
+    group_by(., Sex, Year) %>%
+    arrange(., desc(n)) %>%
+    mutate(., Rank = row_number())
+
+top_girls <- filter(tmp_50yr, Rank <= 5 & Sex == "Girl") %>%
+    {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
+
+top_boys <- filter(tmp_50yr, Rank <= 5 & Sex == "Boy") %>%
+    {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
+
+
+girl5 <- filter(tmp_50yr, Name %in% top_girls & Sex == "Girl") %>%
+    arrange(., Name, Year)
+boy5 <- filter(tmp_50yr, Name %in% top_boys & Sex == "Boy") %>%
+    arrange(., Year)
+```
+
+```{r}
+girl_n <- n_distinct(girl5$Name)
+boy_n <- n_distinct(boy5$Name)
+
+plot_ly(data = girl5, type = 'scatter', mode = 'lines+markers',
+        x = ~Year, y = ~Rank, color = ~Name, colors = unname(iwanthue(girl_n))
+        ) %>%
+    layout(., yaxis = list(autorange = "reversed"))
+
+filter(girl5, Name == "Madison") 
+```
+
+Well, that worked but I had assumed that the top 5 names for any given year would always be in the top 1000 and therefore have a rank for each year. That is not the case for all names (example: Madison).
+
+Well, I could go back to the spread/gather approach and before spreading paste `n` and `Rank` together so they are spread correctly and then split them after gathering. I could afterward replace `NA` values in `Rank` with `>1000` but I don't think I'll do that. I think I'll just leave it `NA`.
+
+```{r}
+glimpse(girl5)
+girl5_2 <- unite(girl5, col = n_Rank, n, Rank, sep = "_") %>%
+    spread(., key = Year, value = n_Rank) %>%
+    gather(., key = "Year", value = "n_Rank", -Name, -Sex, na.rm = FALSE) %>%
+    separate(., col = n_Rank, into = c("n", "Rank"), sep = "_", remove = TRUE, convert = TRUE)
+
+plot_ly(data = girl5_2, type = 'scatter', mode = 'lines+markers',
+        x = ~Year, y = ~Rank, color = ~Name, colors = unname(iwanthue(girl_n))
+        ) %>%
+    layout(., yaxis = list(autorange = "reversed"))
+```
+
+
+Just too busy, will scale down to the top 2 names each year
+
+```{r top2_allRank}
+top2_50yr <- mutate(US_baby, Sex = recode(Sex, "F" = "Girl", "M" = "Boy")) %>%
+    filter(., Year >= max(Year) - 50) %>%
+    group_by(., Sex, Year) %>%
+    arrange(., desc(n)) %>%
+    mutate(., Rank = min_rank(-n))
+
+top2_girls <- filter(tmp_50yr, Rank <= 2 & Sex == "Girl") %>%
+    {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
+
+girl2 <- filter(tmp_50yr, Name %in% top2_girls & Sex == "Girl") %>%
+    arrange(., Name, Year) %>%
+    unite(., col = n_Rank, n, Rank, sep = "_") %>%
+    spread(., key = Year, value = n_Rank) %>%
+    gather(., key = "Year", value = "n_Rank", -Name, -Sex, na.rm = FALSE) %>%
+    separate(., col = n_Rank, into = c("n", "Rank"), sep = "_",
+             remove = TRUE, convert = TRUE)
+
+top2_boys <- filter(tmp_50yr, Rank <= 2 & Sex == "Boy") %>%
+    {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
+
+boy2 <- filter(tmp_50yr, Name %in% top2_boys & Sex == "Boy") %>%
+    arrange(., Year) %>%
+    unite(., col = n_Rank, n, Rank, sep = "_") %>%
+    spread(., key = Year, value = n_Rank) %>%
+    gather(., key = "Year", value = "n_Rank", -Name, -Sex, na.rm = FALSE) %>%
+    separate(., col = n_Rank, into = c("n", "Rank"), sep = "_",
+             remove = TRUE, convert = TRUE)
+```
+
+```{r}
+plot_ly(data = girl2, type = 'scatter', mode = 'lines+markers',
+        x = ~Year, y = ~Rank, color = ~Name, colors = unname(iwanthue(girl_n))
+        ) %>%
+    layout(., yaxis = list(range = c(5.5, 0.5)))
+```
+
+These should match if the calculations were right... some values are being dropped. WHY?
+```{r}
+filter(US_baby, Name == "Madison", Year == 1977)
+filter(girl2, Name == "Madison", Year == 1977)
+```
 
