@@ -1,6 +1,12 @@
 ---
 title: "Exploring plotly"
-output: html_notebook
+author: "J. Allen Baron"
+date: "June 16, 2018"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
 ---
 
 # Nice Plotly Features
@@ -50,7 +56,11 @@ download.file("https://www.ssa.gov/OACT/babynames/names.zip",
               destfile = "./plotly_data/names.zip") # national data
 download.file("https://www.ssa.gov/OACT/babynames/state/namesbystate.zip",
               destfile = "./plotly_data/namesbystate.zip") # state data
-saveRDS(Sys.time(), file = "./plotly_data/dl_timestamp.Rdata")
+
+# time of download
+Sys.time() %>%
+    format(., format = "%e %b %Y at %H:%M:%S", usetz = TRUE) %>%
+    saveRDS(., file = "./plotly_data/dl_timestamp.Rdata")
 ```
 
 ```{r load_data, results = 'hide', message = FALSE}
@@ -550,10 +560,10 @@ top2_50yr <- mutate(US_baby, Sex = recode(Sex, "F" = "Girl", "M" = "Boy")) %>%
     arrange(., desc(n)) %>%
     mutate(., Rank = min_rank(-n))
 
-top2_girls <- filter(tmp_50yr, Rank <= 2 & Sex == "Girl") %>%
+top2_girls <- filter(top2_50yr, Rank <= 2 & Sex == "Girl") %>%
     {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
 
-girl2 <- filter(tmp_50yr, Name %in% top2_girls & Sex == "Girl") %>%
+girl2 <- filter(top2_50yr, Name %in% top2_girls & Sex == "Girl") %>%
     arrange(., Name, Year) %>%
     unite(., col = n_Rank, n, Rank, sep = "_") %>%
     spread(., key = Year, value = n_Rank) %>%
@@ -561,10 +571,10 @@ girl2 <- filter(tmp_50yr, Name %in% top2_girls & Sex == "Girl") %>%
     separate(., col = n_Rank, into = c("n", "Rank"), sep = "_",
              remove = TRUE, convert = TRUE)
 
-top2_boys <- filter(tmp_50yr, Rank <= 2 & Sex == "Boy") %>%
+top2_boys <- filter(top2_50yr, Rank <= 2 & Sex == "Boy") %>%
     {unique(.$Name)} # some unfortunate girls were given boy names => filter by sex too
 
-boy2 <- filter(tmp_50yr, Name %in% top2_boys & Sex == "Boy") %>%
+boy2 <- filter(top2_50yr, Name %in% top2_boys & Sex == "Boy") %>%
     arrange(., Year) %>%
     unite(., col = n_Rank, n, Rank, sep = "_") %>%
     spread(., key = Year, value = n_Rank) %>%
@@ -585,4 +595,56 @@ These should match if the calculations were right... some values are being dropp
 filter(US_baby, Name == "Madison", Year == 1977)
 filter(girl2, Name == "Madison", Year == 1977)
 ```
+I thought it was because input was `tmp_50yr` instead of `top2_50yr` but that did not fix the problem. Examine each dataframe to see when data is dropped
+
+```{r}
+filter(US_baby, Name == "Madison", Year == 1977) # this is taking into account boys names
+filter(top2_50yr, Name == "Madison", Year == 1977) # still here
+filter(girl2, Name == "Madison", Year == 1977) # missing
+```
+
+So, it's lost in the creation of `girl2`. Where? Is `top2_girls` correct?
+
+```{r}
+filter(top2_50yr, Sex == "Girl", Rank <= 2) %>%
+    arrange(., Year, Rank) %>%
+    .$Name %in% top2_girls %>%
+    all()
+```
+
+Appears to be. Now for `girl2`.
+
+```{r}
+
+# is each name-sex combination present for 1967-2017 in top2_50yr?
+all_yrs <- unique(top2_50yr$Year) %>%
+        sort(.)
+girl2 <- filter(top2_50yr, Name %in% top2_girls & Sex == "Girl")
+group_by(girl2, Name) %>%
+    summarize(., sum(Year %in% all_yrs, na.rm = TRUE))
+```
+
+Apparently only 'Madison' is missing. Why? Is it present in the original data?
+
+```{r}
+filter(US_baby, Name == "Madison" & Sex == "F") %>%
+    arrange(., Year)
+```
+
+Nope. Okay, so there are NO ERRORS... that's just the way the data is. I guess 'Madison' was a very unpopular name for girls before 1984 and didn't really even exist before 1970. Just out of curiosity... what about boys named 'Madison'? and compared to girls?
+
+```{r}
+madison <- filter(US_baby, Name == 'Madison') %>%
+        arrange(., Year)
+
+# boys name popularity
+filter(madison, Sex == 'M') %>%
+    ggplot(., aes(x = Year, y = n)) +
+        geom_line()
+
+# boys vs girls popularity
+ggplot(madison, aes(x = Year, y = n, color = Sex)) +
+    geom_line()
+```
+Similar trend but the name never really caught on for boys... probably because people overwhelmingly preferred it for girls.
 
