@@ -109,7 +109,7 @@ girl_colors <- top2_girls %>%
 plot_ly(data = girls, type = 'scatter', mode = 'lines+markers',
         x = ~Year, y = ~Rank, color = ~Name, colors = girl_colors
         ) %>%
-    layout(., yaxis = list(range = c(5.5, 0.5)))
+    layout(., yaxis = list(range = c(25.5, 0.5)))
 ```
   
 - NOTE: Only those girls' names that reached the Top 2 in at least one year are included.
@@ -124,13 +124,7 @@ boy_colors <- top2_boys %>%
 plot_ly(data = boys, type = 'scatter', mode = 'lines+markers',
         x = ~Year, y = ~Rank, color = ~Name, colors = boy_colors
         ) %>%
-    layout(., yaxis = list(range = c(5.5, 0.5)))
+    layout(., yaxis = list(range = c(25.5, 0.5)))
 ```
   
 - NOTE: Only those boys' names that reached the Top 2 in at least one year are included.
-
-## sessionInfo {.smaller}
-```{r, echo = FALSE}
-sessionInfo()
-```
-
