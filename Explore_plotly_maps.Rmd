@@ -2,7 +2,10 @@
 title: "Exploring plot_ly for creating maps"
 author: "J. Allen Baron"
 date: "May 22, 2018"
-output: html_notebook
+output: 
+  html_document: 
+    toc: yes
+    toc_float: yes
 ---
 
 ```{r libraries, include = FALSE}
@@ -111,7 +114,7 @@ p
 head(df)
 ```
 
-```{r direct_copy}
+```{r direct_copy, eval = FALSE}
 #### DON'T WORK!!! ####
 # from https://moderndata.plot.ly/visualizing-geo-spatial-data-with-sf-and-plotly/
 plot_ly(franconia, split = ~NAME_ASCI)
@@ -125,8 +128,9 @@ plot_ly(
 )
 ```
 
-```{r altered}
+```{r altered, eval = FALSE}
 # from https://moderndata.plot.ly/visualizing-geo-spatial-data-with-sf-and-plotly/
+# not evaluated
 plot_ly(franconia, split = ~NAME_ASCI, type = 'scattergeo', mode = 'lines',
         linetype = 'solid')
 %>%
