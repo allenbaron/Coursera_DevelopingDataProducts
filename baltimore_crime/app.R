@@ -29,37 +29,52 @@ crime_list <- crime$type %>%
     unique() %>%
     sort()
 
-# define color scale for unique crimes (maintain consistency among plots)
+# define color scale for unique crimes (to maintain consistency among plots)
 myColors <- brewer.pal(9, "Set1")
 names(myColors) <- crime_list
-myColors <- c(myColors, TOTAL = "#000000")
+myColors <- c(myColors,
+              `Total - \n Selected\n Crimes` = "#FFFFFF",
+              `Total -\n All\n Crimes` = "#000000")
 
 ui <- fluidPage(
     
-    titlePanel("Baltimore Violent Crime over Time"),
+    titlePanel("Violent Crime Trends in Baltimore, Maryland, USA",
+               windowTitle = "Crime Trends"),
     
     sidebarLayout(
         sidebarPanel(
+            # Select x-axis scale (date)
             dateRangeInput(
                 inputId = "timeframe",
-                label = "Timeframe:",
+                label = "Select a timeframe:",
                 start = "2017-01-01",
                 end = "2018-01-01",
                 min = min(crime$date),
                 max = max(crime$date)
             ),
+            # Select x-axis binning
+            selectInput(inputId = "bin_by",
+                        label = "Plotted by:",
+                        choices = c("Day", "Week", "Month", "Year"),
+                        selected = "Week"
+            ),
+            # Select type of plot
             selectInput(inputId = "compare",
-                        label = "Compare:",
+                        label = "Comparing:",
                         choices = c("Counts", "Distributions"),
                         selected = "Counts"
             ),
+            # Select crimes to include
             checkboxGroupInput(
                 inputId = "types",
-                label = "Crimes to Include:",
+                label = "Including these crime:",
                 choices = crime_list,
                 selected = c("Assault", "Homicide", "Shooting")
             ),
-            checkboxInput(inputId = "total", label = "TOTAL")
+            # Plot total of selected crimes
+            checkboxInput(inputId = "subtotal", label = "Total of SELECTED crimes"),
+            # Plot total of all crimes
+            checkboxInput(inputId = "total", label = "Total of ALL crimes")
         ),
         
         mainPanel(
@@ -70,6 +85,7 @@ ui <- fluidPage(
 
 server <- function(input, output) {
     
+    # Set x-axis scale (date)
     date_subset <- reactive({
         filter(
             crime,
@@ -77,11 +93,22 @@ server <- function(input, output) {
         )
     })
     
+    # Set x-axis binning
+    bin <- reactive({
+        case_when(
+            input$bin_by == "Day" ~ 1,
+            input$bin_by == "Week" ~ 7,
+            input$bin_by == "Month" ~ 365/12,
+            input$bin_by == "Year" ~ 365
+        )
+    })
+    
+    # Subset to selected crimes
     type_subset <- reactive({
         filter(date_subset(), type %in% input$types)
     })
     
-    # Set calculated value & y-axis name based on 'Compare' choice
+    # Set calculated value & y-axis name based on selected plot type
     stat <- reactive({
         if_else(input$compare == "Counts", "..count..", "..density..")
     })
@@ -93,22 +120,31 @@ server <- function(input, output) {
         g <- ggplot(data = type_subset()) +
             geom_freqpoly(
                 mapping = aes_string(x = "date", y = stat(), color = "type"),
-                binwidth = 30,
+                binwidth = bin(),
                 size = 1) +
             labs(x = "Date", y = y_name())
-        
-        if(input$total) { # include TOTAL?
+        # Include Total of ALL crimes
+        if(input$subtotal) { 
             g <- g + geom_freqpoly(
-                data = date_subset(),
-                mapping = aes_string(x = "date", y = stat(), color = '"TOTAL"'),
-                binwidth = 30,
+                data = type_subset(),
+                mapping = aes_string(x = "date", y = stat(),
+                                     color = '"Total - \n Selected\n Crimes"'),
+                binwidth = bin(),
                 size = 1)
         }
-        print(g + scale_colour_manual(name = "Type", values = myColors))
+        # Include Total of SELECTED crimes
+        if(input$total) { 
+            g <- g + geom_freqpoly(
+                data = date_subset(),
+                mapping = aes_string(x = "date", y = stat(),
+                                     color = '"Total -\n All\n Crimes"'),
+                binwidth = bin(),
+                size = 1)
+        }
+        print(g + scale_colour_manual(name = "Crime", values = myColors))
     })
     
 }
 
-# Run the application 
 shinyApp(ui = ui, server = server)
 
