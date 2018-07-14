@@ -73,9 +73,9 @@ ui <- fluidPage(
                 selected = c("Assault", "Homicide", "Shooting")
             ),
             # Plot total of selected crimes
-            checkboxInput(inputId = "subtotal", label = "Total of SELECTED crimes"),
+            checkboxInput(inputId = "subtotal", label = "Total - SELECTED crimes"),
             # Plot total of all crimes
-            checkboxInput(inputId = "total", label = "Total of ALL crimes")
+            checkboxInput(inputId = "total", label = "Total - ALL crimes")
         ),
         
         mainPanel(
