@@ -2,7 +2,7 @@ library(shiny)
 library(RSocrata)
 library(tidyverse)
 library(lubridate)
-library(RColorBrewer)
+library(hues)
 
 # access Open Baltimore, Socrata Open Data API (SODA)
 crime <- read.socrata(
@@ -30,11 +30,12 @@ crime_list <- crime$type %>%
     sort()
 
 # define color scale for unique crimes (to maintain consistency among plots)
-myColors <- brewer.pal(9, "Set1")
-names(myColors) <- crime_list
-myColors <- c(myColors,
-              `Total - \n Selected\n Crimes` = "#FFFFFF",
-              `Total -\n All\n Crimes` = "#000000")
+myColors <- iwanthue(11)
+names(myColors) <- c(
+    "Total -\n All\n Crimes",
+    "Total - \n Selected\n Crimes",
+    crime_list
+)
 
 ui <- fluidPage(
     
