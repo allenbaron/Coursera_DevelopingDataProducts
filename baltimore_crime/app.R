@@ -48,8 +48,8 @@ ui <- fluidPage(
             dateRangeInput(
                 inputId = "timeframe",
                 label = "Select a timeframe:",
-                start = "2017-01-01",
-                end = "2018-01-01",
+                start = max(crime$date) - years(1),
+                end = max(crime$date),
                 min = min(crime$date),
                 max = max(crime$date)
             ),
@@ -62,7 +62,7 @@ ui <- fluidPage(
             # Select type of plot
             selectInput(inputId = "compare",
                         label = "Comparing:",
-                        choices = c("Counts", "Distributions"),
+                        choices = c("Counts", "Distribution"),
                         selected = "Counts"
             ),
             # Select crimes to include
@@ -144,7 +144,7 @@ server <- function(input, output) {
     date_subset <- reactive({
         filter(
             crime,
-            between(date, ymd(input$timeframe[1]), ymd(input$timeframe[2]))
+            between(date, input$timeframe[1], input$timeframe[2])
         )
     })
     
