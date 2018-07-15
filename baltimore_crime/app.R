@@ -79,7 +79,61 @@ ui <- fluidPage(
         ),
         
         mainPanel(
-            plotOutput(outputId = "plot")
+            plotOutput(outputId = "plot"),
+            tabsetPanel(type = "pills",
+                tabPanel(
+                    title = "Description",
+                    HTML(
+                        "<h4>App Description</h4>
+                        <p>This app is designed to help users explore trends in violent 
+                        crime that occurred in Baltimore, Maryland, USA. The source 
+                        code is available on <a href=''>Github</a>.</p>
+                        <h4>Data Source</h4>
+                        <p>The data powering this app is collected and made publicly 
+                        available by the Baltimore Police Department on Baltimore's 
+                        Open Data portal, <a href='https://data.baltimorecity.gov/'>
+                        Open Baltimore</a>, as 
+                        <a href='https://data.baltimorecity.gov/Public-Safety/BPD-Part-1-Victim-Based-Crime-Data/wsfq-mvij'>
+                        Part 1 Victim Based Crime Data</a>.<br>
+                        For more information about the data, follow the link to the data set."
+                    )
+                ),
+                tabPanel(
+                    title = "Customization",
+                    HTML(
+                "<h4>How to Customize the Plot</h4>
+                <ol>
+                    <li>Select a start and end date of data to plot.
+                        <ul>
+                            <li>Data are available from ",
+                                as.character(min(crime$date)), " to ",
+                                as.character(max(crime$date)), ".</li>
+                        </ul>
+                    </li>
+                    <li>Choose the time period you'd like to group crimes into: 
+                        day, week, month, or year.</li>
+                    <li>Choose whether you'd like to compare the count or 
+                        distribution of the data.
+                        <ul>
+                            <li><b>Count</b> is the number of crimes per period.</li>
+                            <li><b>Distribution</b> is the <i>density</i> of 
+                                crimes per period. Choose this to compare 
+                                trends in crimes with very different counts.</li>
+                        </ul>
+                    </li>
+                    <li>Select crime types.</li>
+                    <li>Choose whether to include crime totals.
+                        <ul>
+                            <li><b>Total - SELECTED crimes</b> is the total of 
+                                crimes <i>currently</i> on the plot.</li>
+                            <li><b>Total - ALL crimes</b> is the total of all 
+                                crimes in the data set.</li>
+                        </ul>
+                    </li>
+                </ol>"
+                    )
+                )
+            )
         )
     )
 )
