@@ -87,7 +87,7 @@ ui <- fluidPage(
                         "<h4>App Description</h4>
                         <p>This app is designed to help users explore trends in violent 
                         crime that occurred in Baltimore, Maryland, USA. The source 
-                        code is available on <a href=''>Github</a>.</p>
+                        code is available on <a href='https://github.com/allenbaron/Coursera_DevelopingDataProducts'>Github</a>.</p>
                         <h4>Data Source</h4>
                         <p>The data powering this app is collected and made publicly 
                         available by the Baltimore Police Department on Baltimore's 
