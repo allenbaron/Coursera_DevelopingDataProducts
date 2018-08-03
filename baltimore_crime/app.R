@@ -99,7 +99,7 @@ ui <- fluidPage(
                     )
                 ),
                 tabPanel(
-                    title = "Customization",
+                    title = "How To ...",
                     HTML(
                 "<h4>How to Customize the Plot</h4>
                 <ol>
