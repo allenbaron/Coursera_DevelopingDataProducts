@@ -1,0 +1,54 @@
+/* MY CSS style sheet */
+
+.section .reveal .state-background {
+    background-image: url("images/bmore_crimetape.png");
+    background-color: SkyBlue;
+    background-size: 100% 100%;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    transition: none;
+}
+
+.section .reveal .title,
+.section .reveal .author {
+    display: table;
+    background-color: white;
+    background-color: rgba(255,255,255,0.65);
+    border-radius: 25px;
+    color: black;
+    position: relative;
+    top: -20px;
+    font-weight: bold;
+    background-size: 200%;
+    padding: 20px;
+}
+
+.section .reveal .author {
+    font-size: 150%;
+    line-height: 1.25;
+}
+
+.reveal .catchy {
+    line-height: 1.5;
+    text-align: left;
+    position: relative;
+    top: 75px;
+}
+
+.reveal .violent {
+    color: red;
+    font-style: italic;
+}
+
+.reveal img {
+    position: absolute;
+    top: 10%;
+}
+
+.reveal section .larger {
+    font-size: 120%;
+}
+
+.reveal section code {
+    font-size: 100%;
+}
